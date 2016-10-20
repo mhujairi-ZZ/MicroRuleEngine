@@ -112,6 +112,33 @@ namespace MicroRuleEngine.Tests
         }
 
         [TestMethod]
+        public void AnyOperator()
+        {
+            Order order = GetOrder();
+            Rule rule = new Rule
+            {
+                MemberName = "Items",// The array property
+                Operator = "Any",
+                Rules = new[]
+                {
+                    new Rule
+                    {
+                        MemberName = "ItemCode", // the property in the above array item
+                        TargetValue = "Test",
+                    }
+                }
+            };
+            var boolMethod = MRE.Instance.Compile<Order>(rule);
+            bool passes = boolMethod(order);
+            Assert.IsTrue(passes);
+
+            var item = order.Items.First(x => x.ItemCode == "Test");
+            item.ItemCode = "Changed";
+            passes = boolMethod(order);
+            Assert.IsFalse(passes);
+        }
+
+        [TestMethod]
         public void ChildPropertyBooleanMethods()
         {
             Order order = GetOrder();

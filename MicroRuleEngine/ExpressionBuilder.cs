@@ -26,18 +26,40 @@ namespace MicroRuleEngine
 
         public static Expression Build<T>(Rule rule, ParameterExpression parameterExpression)
         {
+            return Build(typeof(T), rule, parameterExpression);
+        }
+
+        public static Expression Build(Type type, Rule rule, ParameterExpression parameterExpression)
+        {
+            //if (String.Compare(rule.Operator, "Any", StringComparison.CurrentCultureIgnoreCase))
+            //{
+            //    var propExp = GetPropertyExpression<T>(rule, parameterExpression);
+            //    var org = Expression.Parameter(typeof(Organization), "org");
+            //    Expression<Func<OrganizationField, bool>> predicate =
+            //        a => a.CustomField.Name == filter.Name && values.Contains(a.Value);
+            //    var body = Expression.Call(typeof(Enumerable), "Any", new[] { typeof(OrganizationField) },
+            //        Expression.PropertyOrField(org, "OrganizationFields"), predicate);
+            //    var lambda = Expression.Lambda<Func<Organization, bool>>(body, org);
+            //}
+
+
             ExpressionType nestedOperator;
             return Enum.TryParse(rule.Operator, out nestedOperator) &&
                     NestedOperators.Contains(nestedOperator) &&
                     rule.Rules != null &&
                     rule.Rules.Any()
-                       ? Build<T>(rule.Rules, parameterExpression, nestedOperator)
-                       : BuildExpression<T>(rule, parameterExpression);
+                       ? Build(type,rule.Rules, parameterExpression, nestedOperator)
+                       : BuildExpression(type,rule, parameterExpression);
         }
 
         public static Expression Build<T>(IEnumerable<Rule> rules, ParameterExpression parameterExpression, ExpressionType operation)
         {
-            var expressions = rules.Select(r => Build<T>(r, parameterExpression));
+            return Build(typeof(T), rules, parameterExpression, operation);
+        }
+
+        public static Expression Build(Type type, IEnumerable<Rule> rules, ParameterExpression parameterExpression, ExpressionType operation)
+        {
+            var expressions = rules.Select(r => Build(type,r, parameterExpression));
 
             return Build(expressions, operation);
         }
@@ -45,7 +67,7 @@ namespace MicroRuleEngine
 
 
         private static Expression Build(IEnumerable<Expression> expressions, ExpressionType operationType)
-        {
+        { 
             Func<Expression, Expression, Expression> expressionAggregateMethod;
             switch (operationType)
             {
@@ -62,7 +84,6 @@ namespace MicroRuleEngine
                     expressionAggregateMethod = Expression.And;
                     break;
             }
-
             return BuildExpression(expressions, expressionAggregateMethod);
         }
 
@@ -75,50 +96,14 @@ namespace MicroRuleEngine
             );
         }
 
-
-        private static Expression BuildExpression<T>(Rule rule, Expression expression)
+        private static Expression BuildExpression(Type type, Rule rule, Expression expression)
         {
-            Expression propExpression;
-            Type propType;
-            if (string.IsNullOrEmpty(rule.MemberName)) //check is against the object itself
-            {
-                propExpression = expression;
-                propType = propExpression.Type;
-            }
-            else if (rule.MemberName.Contains('.')) //Child property
-            {
-                var childProperties = rule.MemberName.Split('.');
-                var property = typeof(T).GetProperty(childProperties[0]);
-                // not being used?
-                // ParameterExpression paramExp = Expression.Parameter(typeof(T), "SomeObject");
-
-                propExpression = Expression.PropertyOrField(expression, childProperties[0]);
-                for (var i = 1; i < childProperties.Length; i++)
-                {
-                    // not being used?
-                    // PropertyInfo orig = property;
-                    if (property == null) continue;
-                    property = property.PropertyType.GetProperty(childProperties[i]);
-                    if (property == null) continue;
-                    propExpression = Expression.PropertyOrField(propExpression, childProperties[i]);
-                }
-                propType = propExpression.Type;
-            }
-            else //Property
-            {
-                propExpression = Expression.PropertyOrField(expression, rule.MemberName);
-                propType = propExpression.Type;
-            }
-
-            propExpression = Expression.TryCatch(
-                Expression.Block(propExpression.Type, propExpression),
-                Expression.Catch(typeOfNullReferenceException, Expression.Default(propExpression.Type))
-            );
+            var propExpression = GetPropertyExpression(type,rule, expression);
             ExpressionType tBinary;
             // is the operator a known .NET operator?
             if (Enum.TryParse(rule.Operator, out tBinary))
             {
-                var right = StringToExpression(rule.TargetValue, propType);
+                var right = StringToExpression(rule.TargetValue, propExpression.Type);
                 return Expression.MakeBinary(tBinary, propExpression, right);
             }
             if (rule.Operator == StrIsMatch)
@@ -139,7 +124,7 @@ namespace MicroRuleEngine
             }
             //Invoke a method on the Property
             var inputs = rule.Inputs.Select(x => x.GetType()).ToArray();
-            var methodInfo = propType.GetMethod(rule.Operator, inputs);
+            var methodInfo = propExpression.Type.GetMethod(rule.Operator, inputs);
             if (!methodInfo.IsGenericMethod)
                 inputs = null; //Only pass in type information to a Generic Method
             var expressions = rule.Inputs.Select(Expression.Constant).ToArray();
@@ -148,6 +133,43 @@ namespace MicroRuleEngine
                 Expression.Block(typeOfBool, Expression.Call(propExpression, rule.Operator, inputs, expressions)),
                 Expression.Catch(typeOfNullReferenceException, Expression.Constant(false))
             );
+        }
+
+        private static Expression GetPropertyExpression(Type type,Rule rule, Expression expression)
+        {
+            Expression propExpression;
+            if (string.IsNullOrEmpty(rule.MemberName)) //check is against the object itself
+            {
+                propExpression = expression;
+            }
+            else if (rule.MemberName.Contains('.')) //Child property
+            {
+                var childProperties = rule.MemberName.Split('.');
+                var property = type.GetProperty(childProperties[0]);
+                // not being used?
+                // ParameterExpression paramExp = Expression.Parameter(typeof(T), "SomeObject");
+
+                propExpression = Expression.PropertyOrField(expression, childProperties[0]);
+                for (var i = 1; i < childProperties.Length; i++)
+                {
+                    // not being used?
+                    // PropertyInfo orig = property;
+                    if (property == null) continue;
+                    property = property.PropertyType.GetProperty(childProperties[i]);
+                    if (property == null) continue;
+                    propExpression = Expression.PropertyOrField(propExpression, childProperties[i]);
+                }
+            }
+            else //Property
+            {
+                propExpression = Expression.PropertyOrField(expression, rule.MemberName);
+            }
+
+            propExpression = Expression.TryCatch(
+                Expression.Block(propExpression.Type, propExpression),
+                Expression.Catch(typeOfNullReferenceException, Expression.Default(propExpression.Type))
+                );
+            return propExpression;
         }
 
         private static Expression StringToExpression(string value, Type propType)
