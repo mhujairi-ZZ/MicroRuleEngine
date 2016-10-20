@@ -29,18 +29,30 @@ namespace MicroRuleEngine
             return Build(typeof(T), rule, parameterExpression);
         }
 
+        //private static Expression BuildEnumrableOpratorExpretion(Type type, Rule rule, ParameterExpression parameterExpression)
+        //{
+        //     var propExp = GetPropertyExpression(type,rule, parameterExpression);
+        //    var org = Expression.Parameter(type, "org");
+        //    //Expression<Func<OrganizationField, bool>> predicate =
+        //    //    a => a.CustomField.Name == filter.Name && values.Contains(a.Value);
+        //    var body = Expression.Call(typeof(Enumerable), "Any", new[] { propExp.Type },
+        //        propExp, predicate);
+
+        //    Expression.Block(typeOfBool, Expression.Call())
+        //    var lambda = Expression.Lambda<Func<type, bool>>(body, org);
+        //}
+
+        private static bool isEnumrableOprator(string oprator)
+        {
+            return string.Compare(oprator, "Any", StringComparison.CurrentCultureIgnoreCase) ==0;
+        }
         public static Expression Build(Type type, Rule rule, ParameterExpression parameterExpression)
         {
-            //if (String.Compare(rule.Operator, "Any", StringComparison.CurrentCultureIgnoreCase))
+            //if (isEnumrableOprator(rule.Operator))
             //{
-            //    var propExp = GetPropertyExpression<T>(rule, parameterExpression);
-            //    var org = Expression.Parameter(typeof(Organization), "org");
-            //    Expression<Func<OrganizationField, bool>> predicate =
-            //        a => a.CustomField.Name == filter.Name && values.Contains(a.Value);
-            //    var body = Expression.Call(typeof(Enumerable), "Any", new[] { typeof(OrganizationField) },
-            //        Expression.PropertyOrField(org, "OrganizationFields"), predicate);
-            //    var lambda = Expression.Lambda<Func<Organization, bool>>(body, org);
+            //    return BuildEnumrableOpratorExpretion(type, rule, parameterExpression);
             //}
+
 
 
             ExpressionType nestedOperator;
@@ -135,9 +147,16 @@ namespace MicroRuleEngine
             );
         }
 
+        public static Type ObjectType = typeof(object);
         private static Expression GetPropertyExpression(Type type,Rule rule, Expression expression)
         {
             Expression propExpression;
+
+            if (expression.Type == ObjectType)
+            {
+                expression = Expression.TypeAs(expression, type);
+            }
+
             if (string.IsNullOrEmpty(rule.MemberName)) //check is against the object itself
             {
                 propExpression = expression;

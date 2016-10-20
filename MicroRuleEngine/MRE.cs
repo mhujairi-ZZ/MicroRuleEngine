@@ -16,5 +16,9 @@ namespace MicroRuleEngine
         {
             return RuleCompiler.Compile<T>(rule);
         }
+        public Func<object, bool> Compile(Type type,Rule rule)
+        {
+            return RuleCompiler.Compile(type,rule);
+        }
     }
 }

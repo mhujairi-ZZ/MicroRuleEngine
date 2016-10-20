@@ -93,7 +93,7 @@ namespace MicroRuleEngine.Tests
         }
 
         [TestMethod]
-        public void BooleanMethods()
+        public void BooleanMethods_ByType()
         {
             Order order = GetOrder();
             Rule rule = new Rule
@@ -101,7 +101,26 @@ namespace MicroRuleEngine.Tests
                                 Operator = "HasItem", //The Order Object Contains a method named 'HasItem' that returns true/false
                                 Inputs = new List<object> { "Test" }
                             };
-            var boolMethod = MRE.Instance.Compile<Order>(rule);
+            var boolMethod = MRE.Instance.Compile(typeof(Order),rule);
+            bool passes = boolMethod(order);
+            Assert.IsTrue(passes);
+
+            var item = order.Items.First(x => x.ItemCode == "Test");
+            item.ItemCode = "Changed";
+            passes = boolMethod(order);
+            Assert.IsFalse(passes);
+        }
+
+        [TestMethod]
+        public void BooleanMethods()
+        {
+            Order order = GetOrder();
+            Rule rule = new Rule
+            {
+                Operator = "HasItem", //The Order Object Contains a method named 'HasItem' that returns true/false
+                Inputs = new List<object> { "Test" }
+            };
+            var boolMethod = MRE.Instance.Compile< Order>(rule);
             bool passes = boolMethod(order);
             Assert.IsTrue(passes);
 
