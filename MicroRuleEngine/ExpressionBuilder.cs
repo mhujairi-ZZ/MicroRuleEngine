@@ -29,31 +29,50 @@ namespace MicroRuleEngine
             return Build(typeof(T), rule, parameterExpression);
         }
 
-        //private static Expression BuildEnumrableOpratorExpretion(Type type, Rule rule, ParameterExpression parameterExpression)
-        //{
-        //     var propExp = GetPropertyExpression(type,rule, parameterExpression);
-        //    var org = Expression.Parameter(type, "org");
-        //    //Expression<Func<OrganizationField, bool>> predicate =
-        //    //    a => a.CustomField.Name == filter.Name && values.Contains(a.Value);
-        //    var body = Expression.Call(typeof(Enumerable), "Any", new[] { propExp.Type },
-        //        propExp, predicate);
+        private static Type funcType = typeof(Func<,>);
+        private static Type BoolType = typeof (bool);
+        private static Type EnurmableType = typeof (Enumerable);
+        private static Expression BuildEnumrableOpratorExpretion(Type type, Rule rule, ParameterExpression parameterExpression)
+        {
+            var collectionPropertyExpression = GetPropertyExpression(type, rule, parameterExpression);
 
-        //    Expression.Block(typeOfBool, Expression.Call())
-        //    var lambda = Expression.Lambda<Func<type, bool>>(body, org);
-        //}
+            var itemType = GetCollectionItemType(collectionPropertyExpression.Type);
+            var expressionParameter = Expression.Parameter(itemType);
+            
+            
+            var genericFunc = funcType.MakeGenericType(itemType, BoolType);
+
+            var innerExp = Build(itemType, rule.Rules, expressionParameter, ExpressionType.And);
+            var predicate = Expression.Lambda(genericFunc, innerExp, expressionParameter);
+
+            var body = Expression.Call(EnurmableType, rule.Operator, new[] { itemType },collectionPropertyExpression, predicate);
+
+            return body;
+        }
+
+        private static Type GetCollectionItemType(Type collectionType)
+        {
+            if (collectionType.IsArray)
+                return collectionType.GetElementType();
+
+            if ((collectionType.GetInterface("IEnumerable") != null))
+                return collectionType.GetGenericArguments()[0];
+
+            return ObjectType;
+        }
 
         private static bool isEnumrableOprator(string oprator)
         {
-            return string.Compare(oprator, "Any", StringComparison.CurrentCultureIgnoreCase) ==0;
+            return string.Equals(oprator, "Any", StringComparison.CurrentCultureIgnoreCase) ||
+                string.Equals(oprator, "All", StringComparison.CurrentCultureIgnoreCase)
+                ;
         }
         public static Expression Build(Type type, Rule rule, ParameterExpression parameterExpression)
         {
-            //if (isEnumrableOprator(rule.Operator))
-            //{
-            //    return BuildEnumrableOpratorExpretion(type, rule, parameterExpression);
-            //}
-
-
+            if (isEnumrableOprator(rule.Operator))
+            {
+                return BuildEnumrableOpratorExpretion(type, rule, parameterExpression);
+            }
 
             ExpressionType nestedOperator;
             return Enum.TryParse(rule.Operator, out nestedOperator) &&

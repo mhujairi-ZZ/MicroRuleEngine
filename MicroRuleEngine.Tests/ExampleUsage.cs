@@ -130,10 +130,23 @@ namespace MicroRuleEngine.Tests
             Assert.IsFalse(passes);
         }
 
+        [TestMethod]    
+        public void Dummy()
+        {
+            var arrayType = typeof (Order[]);
+            var ListType = typeof (List<Order>);
+            var enumrableType = typeof(IEnumerable<Order>);
+        }
+
         [TestMethod]
         public void AnyOperator()
         {
+
+
+
             Order order = GetOrder();
+            //order.Items.Any(a => a.ItemCode == "test")
+
             Rule rule = new Rule
             {
                 MemberName = "Items",// The array property
@@ -143,6 +156,7 @@ namespace MicroRuleEngine.Tests
                     new Rule
                     {
                         MemberName = "ItemCode", // the property in the above array item
+                        Operator = "Equal",
                         TargetValue = "Test",
                     }
                 }
