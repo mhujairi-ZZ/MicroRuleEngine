@@ -2,7 +2,7 @@
 <package >
   <metadata>
     <id>MRE</id>
-    <version>1.0.1</version>
+    <version>1.0.5</version>
     <authors>runxc1</authors>
     <owners>runxc1</owners>
     <projectUrl>https://github.com/runxc1/MicroRuleEngine</projectUrl>
